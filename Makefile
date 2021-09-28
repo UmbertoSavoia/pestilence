@@ -1,4 +1,5 @@
 TARGET = Pestilence
+PACKER = packer
 
 CC = gcc
 CFLAGS = -Werror -Wextra -Werror
@@ -10,27 +11,29 @@ LDFLAGS = -dynamic-linker /lib64/ld-linux-x86-64.so.2 -lc
 
 RM = rm -f
 
-#SRC_C = $(wildcard src/*.c)
+SRC_C = $(wildcard src/*.c)
 SRC_A = $(wildcard src/*.s)
-#OBJS = $(SRC_C:.c=.o)
-OBJS += $(SRC_A:.s=.o)
+OBJS_C = $(SRC_C:.c=.o)
+OBJS_S = $(SRC_A:.s=.o)
 
-all: $(TARGET)
+all: $(TARGET) $(PACKER)
 
-$(TARGET) : $(OBJS)
+$(TARGET) : $(OBJS_S)
 	ld $^ -o $(TARGET)
-#$(LDFLAGS)
 
-#%.o: %.c
-#	$(CC) $(CFLAGS) -c $< -o $@
+$(PACKER) : $(OBJS_C)
+	$(CC) $(CFLAGS) $^ -o $(PACKER)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 %.o: %.s
 	$(AS) $(ASFLAGS) $< -o $@
 
 clean:
-	$(RM) $(OBJS)
+	$(RM) $(OBJS_S) $(OBJS_C)
 
 fclean: clean
-	$(RM) $(TARGET)
+	$(RM) $(TARGET) $(PACKER)
 
 re: fclean all
