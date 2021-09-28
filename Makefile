@@ -16,10 +16,11 @@ SRC_A = $(wildcard src/*.s)
 OBJS_C = $(SRC_C:.c=.o)
 OBJS_S = $(SRC_A:.s=.o)
 
-all: $(TARGET) $(PACKER)
+all: $(PACKER) $(TARGET)
 
 $(TARGET) : $(OBJS_S)
 	ld $^ -o $(TARGET)
+	./packer Pestilence
 
 $(PACKER) : $(OBJS_C)
 	$(CC) $(CFLAGS) $^ -o $(PACKER)
