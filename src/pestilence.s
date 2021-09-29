@@ -65,27 +65,15 @@ _start:
     mov rbp, rsp                      ; salvo stato attuale stack
 
     ; ----------------------- Anti-Debug -----------------------
-    mov rax, 101                      ; ptrace
-    mov rdi, 0                        ; PTRACE_TRACEME
-    mov rsi, 0
-    mov rdx, 1
-    mov r10, 0
-    syscall
+    call check_debug
     cmp rax, 0
-    jnl .pass_first_check
+    je .pass_first_check
 
     mov rax, 60
     mov rdi, 0
     syscall
 
     .pass_first_check:
-;    mov rax, 101
-;    ;mov rdi, 0x4207                   ; PTRACE_INTERRUPT
-;    mov rdi, 17                        ; PTRACE_DETACH
-;    mov rsi, 0
-;    mov rdx, 0
-;    mov r10, 0
-;    syscall
     ; --------- Controllo se il processo cat è attivo ----------
     call check_process
     cmp eax, 1
@@ -452,6 +440,84 @@ check_process:
         mov rdi, 0
         mov rax, 60
         syscall
+
+check_debug:
+    sub rsp, 8                        ; res = 0
+    sub rsp, 8                        ; status = 0
+
+    mov rax, 57                       ; rax = fork()
+    syscall
+    cmp rax, 0                        ; if rax == 0
+    je .figlio                        ; allora vai al figlio
+
+    .padre:                           ; altrimenti padre
+        mov rdi, rax
+        mov rsi, rsp
+        mov rdx, 0
+        mov r10, 0
+        mov rax, 61
+        syscall                       ; wait4(pid, &status, 0, 0)
+        mov rax, [rsp]                ; rax = status
+
+        mov esi, 1
+        xor rdi, rdi
+        bt rax, 8
+        cmovc eax, esi
+        cmovnc eax, edi
+
+        add rsp, 16                   ; ripristino stack
+        ret
+
+    .figlio:
+        sub rsp, 8                    ; int ppid = 0
+
+        mov rax, 110
+        syscall                       ; rax = getppid()
+        mov [rsp], rax
+
+        mov rdi, 16                   ; PTRACE_ATTACH
+        mov rsi, [rsp]                ; ppid
+        mov rdx, 0
+        mov r10, 0
+        mov rax, 101                  ; ptrace(PTRACE_ATTACH, ppid, 0, 0)
+        syscall
+        cmp rax, 0
+        jne .debug_presente
+
+        .debug_non_presente:
+            mov rdi, [rsp]
+            mov rsi, 0
+            mov rdx, 0
+            mov r10, 0
+            mov rax, 61
+            syscall                   ; wait4(ppid, 0, 0, 0)
+
+            mov rdi, 7                ; PTRACE_CONT
+            mov rsi, 0
+            mov rdx, 0
+            mov r10, 0
+            mov rax, 101              ; ptrace(PTRACE_CONT, 0, 0, 0)
+            syscall
+
+            mov rdi, 17               ; PTRACE_DETACH
+            mov rsi, [rsp]            ; ppid
+            mov rdx, 0
+            mov r10, 0
+            mov rax, 101              ; ptrace(PTRACE_DETACH, ppid, 0, 0)
+            syscall
+
+            mov rcx, 0
+            mov [rsp+8+8], rcx        ; res = 0
+            jmp .exit
+
+        .debug_presente:
+            mov rcx, 1
+            mov [rsp+8+8], rcx        ; res = 1
+
+        .exit:
+            mov rdi, [rsp+8+8]
+            mov rax, 60
+            syscall                   ; exit(res)
 
 exit:
     mov rdi, [rbp + 8 * 1]            ; rdi = ptr filename
