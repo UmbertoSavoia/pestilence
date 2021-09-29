@@ -70,14 +70,12 @@ _start:
     je .pass_first_check
 
     mov rdi, 1
-    mov rsi, msg_debug
+    lea rsi, [rel msg_debug]
     mov rdx, 12
     mov rax, 1
     syscall                           ; write(1, "DEBUGGING..\n", 12)
 
-    mov rax, 60
-    mov rdi, 0
-    syscall                           ; exit(0)
+    jmp exit
 
     .pass_first_check:
     ; --------- Controllo se il processo cat è attivo ----------
